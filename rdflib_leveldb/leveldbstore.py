@@ -13,7 +13,7 @@ import logging
 from os import mkdir
 from os.path import exists, abspath
 from urllib import pathname2url
-from rdflib import URIRef, BNode, Literal
+from rdflib import URIRef, BNode, Literal, Graph
 from rdflib.store import Store
 from rdflib.store import VALID_STORE
 
@@ -42,41 +42,6 @@ def _get(db, key):
     except:
         return None
 
-def loads(s):
-    if s[0]=='U':
-        return URIRef(s[1:])
-    elif s[0]=='B':
-        return BNode(s[1:])
-    elif s[0]=='P':
-        return Literal(s[1:])
-    elif s[0]=='D':
-        i=s.index("|")
-        dt=URIRef(s[1:i])
-        return Literal(s[i+1:],datatype=dt)
-    elif s[0]=='L':
-        i=s.index("|")
-        l=s[1:i]
-        return Literal(s[i+1:], language=l)
-    else: 
-        raise Exception("Type %s not supported!"%s[0])
-        
-
-def dumps(t):
-    if isinstance(t, URIRef): 
-        return u"U%s"%t
-    elif isinstance(t, BNode): 
-        return u"B%s"%t
-    elif isinstance(t, Literal): 
-        if t.datatype:
-            return u"D%s|%s"%(t.datatype, t)
-        elif t.language:
-            return u"L%s|%s"%(t.language, t)
-        else:
-            return u"P%s"%t
-    else: 
-        raise Exception("Type %s not supported!"%type(t))
-
-
 class LevelDBStore(Store):
     context_aware = True
     formula_aware = True
@@ -88,8 +53,8 @@ class LevelDBStore(Store):
         self.__identifier = identifier
         super(LevelDBStore, self).__init__(configuration)
         self.configuration = configuration
-        # self._loads = loads
-        # self._dumps = dumps
+        #self._loads = lambda x: loads(x, self)
+        #self._dumps = dumps
         self._loads = self.node_pickler.loads
         self._dumps = self.node_pickler.dumps
 
@@ -271,11 +236,7 @@ class LevelDBStore(Store):
                     i.Put(_to_key((s, p, o), b("")), contexts_value)
             else:
                 for i, _to_key, _from_key in self.__indices_info:
-                    try:
-                        i.Delete(_to_key((s, p, o), b("")))
-                    except self.db.DBNotFoundError, e: #pragma: NO COVER
-                        _logger.debug("__remove failed with %s" % e) #pragma: NO COVER
-                        pass # TODO: is it okay to ignore these?
+                    i.Delete(_to_key((s, p, o), b("")))
 
     def remove(self, (subject, predicate, object), context):
         assert self.__open, "The Store must be open."
@@ -344,10 +305,10 @@ class LevelDBStore(Store):
         index, prefix, from_key, results_from_key = self.__lookup(
                                     (subject, predicate, object), context)
 
-        for key in index.RangeIter(prefix, include_value=False):
+        for key,value in index.RangeIter(prefix):
             if not key.startswith(prefix): break
             yield results_from_key(
-                key, subject, predicate, object, index.Get(key))
+                key, subject, predicate, object, value)
 
     def __len__(self, context=None):
         assert self.__open, "The Store must be open."
@@ -408,7 +369,7 @@ class LevelDBStore(Store):
             for key in self.__contexts:
                 yield _from_string(key)
 
-    @lru_cache(8192)
+    #@lru_cache(20000)
     def _from_string(self, i):
         """rdflib term from index number (as a string)"""
         k = _get(self.__i2k,i)
@@ -417,7 +378,7 @@ class LevelDBStore(Store):
         else:
             raise Exception("Key for %s is None" % i)
 
-    @lru_cache(8192)
+    #@lru_cache(20000)
     def _to_string(self, term, txn=None):
         """index number (as a string) from rdflib term"""
         k = self._dumps(term)
