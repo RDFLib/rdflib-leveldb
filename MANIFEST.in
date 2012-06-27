@@ -1,0 +1,4 @@
+include *.md
+recursive-include rdflib_leveldb *.py
+include setup.*
+graft test
