@@ -3,6 +3,26 @@
 import sys
 import re
 
+
+
+if sys.version_info[0] >= 3:
+    from setuptools import setup
+else:
+    try:
+        from setuptools import setup
+        from setuptools.extension import Extension
+    except ImportError:
+        from distutils.core import setup
+        from distutils.extension import Extension        
+
+try: 
+    from Cython.Distutils import build_ext
+except:  
+    try: 
+        from Pyrex.Distutils import build_ext
+    except: 
+        raise "No Cython or Pyrex found!"
+
 def setup_python3():
     # Taken from "distribute" setup.py
     from distutils.filelist import FileList
@@ -80,19 +100,16 @@ config = dict(
         'rdf.plugins.store': [
             'LevelDB = rdflib_leveldb.leveldbstore:LevelDBStore',
         ],
-    }
+    },
+    ext_modules=[ 
+        Extension("rdflib_leveldb.picklr", ["rdflib_leveldb/picklr.pyx"])
+    ],
+  cmdclass = {'build_ext': build_ext}
 )
 
 if sys.version_info[0] >= 3:
-    from setuptools import setup
     config.update({'use_2to3': True})
     config.update({'src_root': setup_python3()})
-else:
-    try:
-        from setuptools import setup
-        config.update({'test_suite' : "nose.collector"})
-    except ImportError:
-        from distutils.core import setup
 
 
 setup(**config)

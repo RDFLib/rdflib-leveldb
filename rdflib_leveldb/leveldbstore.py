@@ -17,7 +17,7 @@ from rdflib import URIRef, BNode, Literal, Graph
 from rdflib.store import Store
 from rdflib.store import VALID_STORE
 
-from lru import lru_cache
+from lru import lru_cache, lfu_cache
 
 try:
     from leveldb import LevelDB
@@ -25,6 +25,7 @@ except ImportError: #pragma: NO COVER
     raise Exception("leveldb is required but cannot be found") #pragma: NO COVER
 from rdfextras.py3compat import b
 
+import rdflib_leveldb.picklr as picklr
 
 def bb(u): return u.encode('utf-8')
 
@@ -53,10 +54,12 @@ class LevelDBStore(Store):
         self.__identifier = identifier
         super(LevelDBStore, self).__init__(configuration)
         self.configuration = configuration
-        #self._loads = lambda x: loads(x, self)
-        #self._dumps = dumps
-        self._loads = self.node_pickler.loads
-        self._dumps = self.node_pickler.dumps
+        if True:
+            self._loads = lambda x: picklr.loads(x, self)
+            self._dumps = picklr.dumps
+        else:
+            self._loads = self.node_pickler.loads
+            self._dumps = self.node_pickler.dumps
 
         self.db_env = None
     
@@ -82,18 +85,14 @@ class LevelDBStore(Store):
         def dbOpen(name):
 
             dbpathname = abspath(self.path) + '/' + name 
-            db = LevelDB(dbpathname)
-            # if self.create:
-            #     # if not db.open(abspath(self.path) + '/' + name + ".kch", 
-            #     #         DB.OWRITER | DB.OCREATE | DB.OAUTOSYNC | DB.OAUTOTRAN):
-            #     if not db.open(dbpathname, DB.OWRITER | DB.OCREATE):
-            #         raise IOError("open error: %s %s" % (dbpathname, str(db.error())))  #pragma: NO COVER
-            #     return db
-            # else:
-            #     # if not db.open(abspath(self.path) + '/' + name + ".kch", 
-            #     #         DB.OWRITER | DB.OAUTOSYNC | DB.OAUTOTRAN):
-            #     if not db.open(dbpathname, DB.OWRITER):  #pragma: NO COVER
-            #         raise IOError("open error: %s %s" % (dbpathname, str(db.error())))  #pragma: NO COVER
+
+            if self.create:
+                db = LevelDB(dbpathname, create_if_missing=True, 
+                             error_if_exists=False)
+            else: 
+                db = LevelDB(dbpathname, create_if_missing=False, 
+                             error_if_exists=False)
+                
             return db
                 
         # create and open the DBs
@@ -143,16 +142,16 @@ class LevelDBStore(Store):
 
         self.__lookup_dict = lookup
 
-        # these 3 were btree mode in sleepycat, but currently i'm using tc hash
         self.__contexts = dbOpen("contexts")
         self.__namespace = dbOpen("namespace")
         self.__prefix = dbOpen("prefix")
         self.__k2i = dbOpen("k2i")
-        self.__i2k = dbOpen("i2k") # was DB_RECNO mode
-        self.__journal = NoopMethods() # was DB_RECNO mode
- 
-        self.__needs_sync = False
+        self.__i2k = dbOpen("i2k") 
 
+        t=self.__k2i.Get("__terms__")
+        if t:
+            self._terms=int(t)
+ 
         self.__open = True
 
         return VALID_STORE
@@ -161,13 +160,14 @@ class LevelDBStore(Store):
     def close(self, commit_pending_transaction=False):
         _logger.debug("Closing store")
 
-        # for i in self.__indices:
-        #     i.close()
-        # self.__contexts.close()
-        # self.__namespace.close()
-        # self.__prefix.close()
-        # self.__i2k.close()
-        # self.__k2i.close()
+        # levelDB closes on garbage collection
+        self.__indices=[None]*3
+        self.__indices_info=[None]*3
+        self.__contexts=None
+        self.__namespace=None
+        self.__prefix=None
+        self.__i2k=None
+        self.__k2i=None
 
 
         # self.db_env.close()
@@ -216,11 +216,7 @@ class LevelDBStore(Store):
                 cspo.Put(bb("%s^%s^%s^%s^" % ("", s, p, o)), contexts_value)
                 cpos.Put(bb("%s^%s^%s^%s^" % ("", p, o, s)), contexts_value)
                 cosp.Put(bb("%s^%s^%s^%s^" % ("", o, s, p)), contexts_value)
-            self.__needs_sync = True
-            # self.__contexts.synchronize()
-            # for dbindex in self.__indices:
-            #     dbindex.synchronize()
-            # self.synchronize()
+
 
     def __remove(self, (s, p, o), c, quoted=False):
         cspo, cpos, cosp = self.__indices
@@ -257,13 +253,11 @@ class LevelDBStore(Store):
             value = self.__indices[0].Get(bb("%s^%s^%s^%s^" % (c, s, p, o)))
             if value is not None:
                 self.__remove((bb(s), bb(p), bb(o)), bb(c))
-                self.__needs_sync = True
         else:
             cspo, cpos, cosp = self.__indices
             index, prefix, from_key, results_from_key = self.__lookup(
                                     (subject, predicate, object), context)
             
-            needs_sync = False
             for key in index.RangeIter(prefix, include_value=False):
                 if not key.startswith(prefix): break
                 c, s, p, o = from_key(key)
@@ -277,7 +271,6 @@ class LevelDBStore(Store):
                             i.Delete(_to_key((s, p, o), c))
                 else:
                     self.__remove((s, p, o), c)
-                needs_sync = True
             if context is not None:
                 if subject is None and predicate is None and object is None:
                     # TODO: also if context becomes empty and not just on 
@@ -290,8 +283,6 @@ class LevelDBStore(Store):
                         print("%s, Failed to delete %s" % (e, context)) #pragma: NO COVER
                         pass #pragma: NO COVER
             
-            self.__needs_sync = needs_sync
-            # self.synchronize()
 
     def triples(self, (subject, predicate, object), context=None):
         """A generator over all the triples matching """
@@ -369,7 +360,8 @@ class LevelDBStore(Store):
             for key in self.__contexts:
                 yield _from_string(key)
 
-    #@lru_cache(20000)
+    #@lru_cache(5000)
+    #@lfu_cache(5000)
     def _from_string(self, i):
         """rdflib term from index number (as a string)"""
         k = _get(self.__i2k,i)
@@ -378,7 +370,8 @@ class LevelDBStore(Store):
         else:
             raise Exception("Key for %s is None" % i)
 
-    #@lru_cache(20000)
+    #@lru_cache(5000)
+    #@lfu_cache(5000)
     def _to_string(self, term, txn=None):
         """index number (as a string) from rdflib term"""
         k = self._dumps(term)
@@ -387,6 +380,7 @@ class LevelDBStore(Store):
             i = "%s" % self._terms
             self.__k2i.Put(k, i)
             self.__i2k.Put(i, k)
+            self.__k2i.Put("__terms__", self._terms)
 
             self._terms+=1
         else:
@@ -411,8 +405,6 @@ class LevelDBStore(Store):
         prefix = bb("^".join(prefix_func((subject, predicate, object), context)))
         return index, prefix, from_key, results_from_key
     
-    def play_journal(self, graph=None):
-        raise NotImplementedError
     
 def to_key_func(i):
     def to_key(triple, context):
