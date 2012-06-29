@@ -148,9 +148,10 @@ class LevelDBStore(Store):
         self.__k2i = dbOpen("k2i")
         self.__i2k = dbOpen("i2k") 
 
-        t=self.__k2i.Get("__terms__")
-        if t:
-            self._terms=int(t)
+        try:
+            self._terms=int(self.__k2i.Get("__terms__"))
+        except KeyError:
+            pass # new store, no problem
  
         self.__open = True
 
@@ -380,9 +381,10 @@ class LevelDBStore(Store):
             i = "%s" % self._terms
             self.__k2i.Put(k, i)
             self.__i2k.Put(i, k)
-            self.__k2i.Put("__terms__", self._terms)
-
             self._terms+=1
+
+            self.__k2i.Put("__terms__", str(self._terms))
+
         else:
             i = i.decode()
         return i
