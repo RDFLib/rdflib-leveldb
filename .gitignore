@@ -1,5 +1,7 @@
 *~
 *pyc
 build
+.tox
 dist
 *egg-info
+picklr.c

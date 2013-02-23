@@ -1,32 +1,33 @@
 import unittest
 import tempfile
 import os
+import shutil
 import rdflib
+from rdflib_leveldb.leveldbstore import readable_index, NoopMethods
 from rdflib.graph import Graph, ConjunctiveGraph
-from rdflib_kyotocabinet.KyotoCabinet import readable_index, NoopMethods
-storename = "KyotoCabinet"
+storename = "LevelDB"
 storetest = True
-configString = tempfile.mktemp(prefix='test',dir='/tmp')
+configString = tempfile.mktemp(prefix='test', dir='/tmp')
 
-class TestKyotoCabinetGraphCore(unittest.TestCase):
+
+class TestLevelDBGraphCore(unittest.TestCase):
 
     def setUp(self):
-        store = "KyotoCabinet"
+        store = "LevelDB"
         self.graph = Graph(store=store)
         self.path = configString
         self.graph.open(self.path, create=True)
-    
+
     def tearDown(self):
         self.graph.destroy(self.path)
         try:
             self.graph.close()
         except:
             pass
-        if getattr(self,'path', False) and self.path is not None:
+        if getattr(self, 'path', False) and self.path is not None:
             if os.path.exists(self.path):
                 if os.path.isdir(self.path):
-                    for f in os.listdir(self.path): os.unlink(self.path+'/'+f)
-                    os.rmdir(self.path)
+                    shutil.rmtree(self.path)
                 elif len(self.path.split(':')) == 1:
                     os.unlink(self.path)
                 else:
@@ -37,15 +38,12 @@ class TestKyotoCabinetGraphCore(unittest.TestCase):
         self.graph.bind("foaf", "http://xmlns.com/foaf/0.1/")
         self.assert_(len(list(self.graph.namespaces())) == 5)
         self.assert_(
-            ('foaf', rdflib.term.URIRef(u'http://xmlns.com/foaf/0.1/')) \
-                in list(self.graph.namespaces()))
-
-    def test_play_journal(self):
-        self.assertRaises(NotImplementedError, self.graph.store.play_journal, {"graph":self.graph})
+            ('foaf', rdflib.term.URIRef(u'http://xmlns.com/foaf/0.1/'))
+            in list(self.graph.namespaces()))
 
     def test_readable_index(self):
         print(readable_index(111))
-    
+
     def test_create_db(self):
         michel = rdflib.URIRef(u'michel')
         likes = rdflib.URIRef(u'likes')
@@ -55,11 +53,10 @@ class TestKyotoCabinetGraphCore(unittest.TestCase):
         self.graph.add((michel, likes, cheese))
         self.graph.commit()
         self.graph.store.close()
-        if getattr(self,'path', False) and self.path is not None:
+        if getattr(self, 'path', False) and self.path is not None:
             if os.path.exists(self.path):
                 if os.path.isdir(self.path):
-                    for f in os.listdir(self.path): os.unlink(self.path+'/'+f)
-                    os.rmdir(self.path)
+                    shutil.rmtree(self.path)
                 elif len(self.path.split(':')) == 1:
                     os.unlink(self.path)
                 else:
@@ -67,14 +64,13 @@ class TestKyotoCabinetGraphCore(unittest.TestCase):
         self.graph.store.open(self.path, create=True)
         ntriples = self.graph.triples((None, None, None))
         self.assert_(len(list(ntriples)) == 0)
-    
+
     def test_missing_db_exception(self):
         self.graph.store.close()
-        if getattr(self,'path', False) and self.path is not None:
+        if getattr(self, 'path', False) and self.path is not None:
             if os.path.exists(self.path):
                 if os.path.isdir(self.path):
-                    for f in os.listdir(self.path): os.unlink(self.path+'/'+f)
-                    os.rmdir(self.path)
+                    shutil.rmtree(self.path)
                 elif len(self.path.split(':')) == 1:
                     os.unlink(self.path)
                 else:
@@ -95,10 +91,11 @@ class TestKyotoCabinetGraphCore(unittest.TestCase):
         self.graph.store.open(self.path, create=False)
         ntriples = self.graph.triples((None, None, None))
         self.assert_(len(list(ntriples)) == 2)
-    
+
     def test_reopening_missing_db(self):
         self.graph.store.close()
-        self.assertRaises(ValueError, self.graph.store.open, ('/tmp/NotAnExistingDB'), create=False )
+        self.assertRaises(ValueError, self.graph.store.open, (
+            '/tmp/NotAnExistingDB'), create=False)
 
     def test_isopen_db(self):
         self.assert_(self.graph.store.is_open() == True)
@@ -106,23 +103,24 @@ class TestKyotoCabinetGraphCore(unittest.TestCase):
         self.assert_(self.graph.store.is_open() == False)
 
 
-class TestKyotoCabinetConjunctiveGraphCore(unittest.TestCase):
+class TestLevelDBConjunctiveGraphCore(unittest.TestCase):
     def setUp(self):
-        store = "KyotoCabinet"
+        store = "LevelDB"
         self.graph = ConjunctiveGraph(store=store)
         self.path = configString
         self.graph.open(self.path, create=True)
-    
+
     def tearDown(self):
         self.graph.destroy(self.path)
         try:
             self.graph.close()
         except:
             pass
-        if getattr(self,'path', False) and self.path is not None:
+        if getattr(self, 'path', False) and self.path is not None:
             if os.path.exists(self.path):
                 if os.path.isdir(self.path):
-                    for f in os.listdir(self.path): os.unlink(self.path+'/'+f)
+                    for f in os.listdir(self.path):
+                        os.unlink(self.path + '/' + f)
                     os.rmdir(self.path)
                 elif len(self.path.split(':')) == 1:
                     os.unlink(self.path)
@@ -134,11 +132,8 @@ class TestKyotoCabinetConjunctiveGraphCore(unittest.TestCase):
         self.graph.bind("foaf", "http://xmlns.com/foaf/0.1/")
         self.assert_(len(list(self.graph.namespaces())) == 5)
         self.assert_(
-            ('foaf', rdflib.term.URIRef(u'http://xmlns.com/foaf/0.1/')) \
-                in list(self.graph.namespaces()))
-
-    def test_play_journal(self):
-        self.assertRaises(NotImplementedError, self.graph.store.play_journal, {"graph":self.graph})
+            ('foaf', rdflib.term.URIRef(u'http://xmlns.com/foaf/0.1/'))
+            in list(self.graph.namespaces()))
 
     def test_readable_index(self):
         print(readable_index(111))
@@ -151,7 +146,8 @@ class TestKyotoCabinetConjunctiveGraphCore(unittest.TestCase):
         self.graph.add((michel, likes, pizza))
         self.graph.add((michel, likes, cheese))
         self.graph.commit()
-        ntriples = self.graph.triples((None, None, None), context=self.graph.store)
+        ntriples = self.graph.triples(
+            (None, None, None), context=self.graph.store)
         self.assert_(len(list(ntriples)) == 2)
 
     def test_remove_context_reset(self):
@@ -164,8 +160,8 @@ class TestKyotoCabinetConjunctiveGraphCore(unittest.TestCase):
         self.graph.commit()
         self.graph.store.remove((michel, likes, cheese), self.graph.store)
         self.graph.commit()
-        self.assert_(len(list(self.graph.triples((None, None, None), context=self.graph.store))) == 1)
-
+        self.assert_(len(list(self.graph.triples(
+            (None, None, None), context=self.graph.store))) == 1)
 
     def test_remove_db_exception(self):
         michel = rdflib.URIRef(u'michel')
@@ -176,8 +172,10 @@ class TestKyotoCabinetConjunctiveGraphCore(unittest.TestCase):
         self.graph.add((michel, likes, cheese))
         self.graph.commit()
         self.graph.store.__len__(context=self.graph.store)
-        self.assert_(len(list(self.graph.triples((None, None, None), 
-                        context=self.graph.store))) == 2)
+        self.assert_(len(list(
+            self.graph.triples(
+                (None, None, None), context=self.graph.store))) == 2)
+
 
 def test_NoopMethods():
     obj = NoopMethods()
