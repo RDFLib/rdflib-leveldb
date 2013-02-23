@@ -93,7 +93,6 @@ config = dict(
     packages = ["rdflib_leveldb"],
     test_suite = "test",
     install_requires = ["rdflib>=3.0", 
-                        "rdfextras>=0.1", 
                         "leveldb",
                         ],
     entry_points = {

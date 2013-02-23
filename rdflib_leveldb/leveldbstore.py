@@ -23,7 +23,7 @@ try:
     from leveldb import LevelDB
 except ImportError: #pragma: NO COVER
     raise Exception("leveldb is required but cannot be found") #pragma: NO COVER
-from rdfextras.py3compat import b
+from rdflib.py3compat import b
 
 import rdflib_leveldb.picklr as picklr
 

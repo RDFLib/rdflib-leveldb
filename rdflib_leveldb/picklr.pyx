@@ -1,4 +1,5 @@
 from rdflib import URIRef,BNode,Literal,Graph
+from rdflib.graph import GraphValue
 
 def loads(object _s, object store):
     cdef char l
@@ -23,7 +24,7 @@ def loads(object _s, object store):
         language=s[1:i]
         return Literal(s[i+1:], language=language)
     elif l==c'G':
-        return Graph(store, identifier=s[1:])
+        return GraphValue(store, identifier=URIRef(s[1:]))
     else:
         raise Exception("Type %s not supported!"%l)
         
