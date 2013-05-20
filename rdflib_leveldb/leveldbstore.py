@@ -21,12 +21,11 @@ from rdflib.store import VALID_STORE
 from lru import lru_cache, lfu_cache
 
 try:
-    from leveldb import LevelDB
-except ImportError:  # pragma: NO COVER
-    raise Exception(
-        "leveldb is required but cannot be found")  # pragma: NO COVER
-from rdflib.py3compat import b
+    from rdflib_leveldb.leveldb import DB
+except ImportError: #pragma: NO COVER
+    raise Exception("leveldb is required but cannot be found") #pragma: NO COVER
 
+from rdfextras.py3compat import b
 
 import rdflib_leveldb.picklr as picklr
 
@@ -43,10 +42,9 @@ class NoopMethods(object):
     def __getattr__(self, methodName):
         return lambda *args: None
 
-
-def _get(db, key):
-    try:
-        return db.Get(key)
+def _get(db, key): 
+    try: 
+        return db.get(key)
     except:
         return None
 
@@ -95,10 +93,10 @@ class LevelDBStore(Store):
             dbpathname = abspath(self.path) + '/' + name
 
             if self.create:
-                db = LevelDB(dbpathname, create_if_missing=True,
+                db = DB(dbpathname, create_if_missing=True, 
                              error_if_exists=False)
-            else:
-                db = LevelDB(dbpathname, create_if_missing=False,
+            else: 
+                db = DB(dbpathname, create_if_missing=False, 
                              error_if_exists=False)
 
             return db
@@ -158,7 +156,7 @@ class LevelDBStore(Store):
         self.__i2k = dbOpen("i2k")
 
         try:
-            self._terms = int(self.__k2i.Get("__terms__"))
+            self._terms=int(self.__k2i["__terms__"])
         except KeyError:
             pass  # new store, no problem
 
@@ -208,22 +206,21 @@ class LevelDBStore(Store):
 
         value = _get(cspo, bb("%s^%s^%s^%s^" % (c, s, p, o)))
         if value is None:
-            self.__contexts.Put(bb(c), "")
-
-            contexts_value = _get(
-                cspo, bb("%s^%s^%s^%s^" % ("", s, p, o))) or b("")
+            self.__contexts.put(bb(c), "")
+            
+            contexts_value = _get(cspo,bb("%s^%s^%s^%s^" % ("", s, p, o))) or b("")
             contexts = set(contexts_value.split(b("^")))
             contexts.add(bb(c))
             contexts_value = b("^").join(contexts)
-            assert contexts_value != None
-
-            cspo.Put(bb("%s^%s^%s^%s^" % (c, s, p, o)), "")
-            cpos.Put(bb("%s^%s^%s^%s^" % (c, p, o, s)), "")
-            cosp.Put(bb("%s^%s^%s^%s^" % (c, o, s, p)), "")
+            assert contexts_value!=None
+            
+            cspo.put(bb("%s^%s^%s^%s^" % (c, s, p, o)), "")
+            cpos.put(bb("%s^%s^%s^%s^" % (c, p, o, s)), "")
+            cosp.put(bb("%s^%s^%s^%s^" % (c, o, s, p)), "")
             if not quoted:
-                cspo.Put(bb("%s^%s^%s^%s^" % ("", s, p, o)), contexts_value)
-                cpos.Put(bb("%s^%s^%s^%s^" % ("", p, o, s)), contexts_value)
-                cosp.Put(bb("%s^%s^%s^%s^" % ("", o, s, p)), contexts_value)
+                cspo.put(bb("%s^%s^%s^%s^" % ("", s, p, o)), contexts_value)
+                cpos.put(bb("%s^%s^%s^%s^" % ("", p, o, s)), contexts_value)
+                cosp.put(bb("%s^%s^%s^%s^" % ("", o, s, p)), contexts_value)
 
     def __remove(self, (s, p, o), c, quoted=False):
         cspo, cpos, cosp = self.__indices
@@ -233,14 +230,14 @@ class LevelDBStore(Store):
         contexts.discard(c)
         contexts_value = b("^").join(contexts)
         for i, _to_key, _from_key in self.__indices_info:
-            i.Delete(_to_key((s, p, o), c))
+            i.delete(_to_key((s, p, o), c))
         if not quoted:
             if contexts_value:
                 for i, _to_key, _from_key in self.__indices_info:
-                    i.Put(_to_key((s, p, o), b("")), contexts_value)
+                    i.put(_to_key((s, p, o), b("")), contexts_value)
             else:
                 for i, _to_key, _from_key in self.__indices_info:
-                    i.Delete(_to_key((s, p, o), b("")))
+                    i.delete(_to_key((s, p, o), b("")))
 
     def remove(self, (subject, predicate, object), context):
         assert self.__open, "The Store must be open."
@@ -258,26 +255,25 @@ class LevelDBStore(Store):
             p = _to_string(predicate)
             o = _to_string(object)
             c = _to_string(context)
-            value = self.__indices[0].Get(bb("%s^%s^%s^%s^" % (c, s, p, o)))
+            value = self.__indices[0].get(bb("%s^%s^%s^%s^" % (c, s, p, o)))
             if value is not None:
                 self.__remove((bb(s), bb(p), bb(o)), bb(c))
         else:
             cspo, cpos, cosp = self.__indices
             index, prefix, from_key, results_from_key = self.__lookup(
-                (subject, predicate, object), context)
-
-            for key in index.RangeIter(prefix, include_value=False):
-                if not key.startswith(prefix):
-                    break
+                                    (subject, predicate, object), context)
+            
+            for key,value in index.range(prefix):
+                if not key.startswith(prefix): break
                 c, s, p, o = from_key(key)
                 if context is None:
-                    contexts_value = index.Get(key) or b("")
+                    contexts_value = index.get(key) or b("")
                     # remove triple from all non quoted contexts
                     contexts = set(contexts_value.split(b("^")))
                     contexts.add(b(""))  # and from the conjunctive index
                     for c in contexts:
                         for i, _to_key, _ in self.__indices_info:
-                            i.Delete(_to_key((s, p, o), c))
+                            i.delete(_to_key((s, p, o), c))
                 else:
                     self.__remove((s, p, o), c)
             if context is not None:
@@ -285,7 +281,7 @@ class LevelDBStore(Store):
                     # TODO: also if context becomes empty and not just on
                     # remove((None, None, None), c)
                     try:
-                        self.__contexts.Delete(bb(_to_string(context)))
+                        self.__contexts.delete(bb(_to_string(context)))
                     # except db.DBNotFoundError, e:
                     #     pass
                     except Exception, e:  # pragma: NO COVER
@@ -305,9 +301,8 @@ class LevelDBStore(Store):
         index, prefix, from_key, results_from_key = self.__lookup(
             (subject, predicate, object), context)
 
-        for key, value in index.RangeIter(prefix):
-            if not key.startswith(prefix):
-                break
+        for key,value in index.range(prefix):
+            if not key.startswith(prefix): break
             yield results_from_key(
                 key, subject, predicate, object, value)
 
@@ -321,20 +316,19 @@ class LevelDBStore(Store):
             prefix = b("^")
         else:
             prefix = bb("%s^" % self._to_string(context))
-
-        return len([key for key in self.__indices[0].RangeIter(
-            prefix, include_value=False)
-            if key.startswith(prefix)])
+        
+        return len([key for key,val in self.__indices[0].range(prefix) 
+                            if key.startswith(prefix)])
 
     def bind(self, prefix, namespace):
         prefix = prefix.encode("utf-8")
         namespace = namespace.encode("utf-8")
         bound_prefix = _get(self.__prefix, namespace)
         if bound_prefix:
-            self.__namespace.Delete(bound_prefix)
-        self.__prefix.Put(namespace, prefix)
-        self.__namespace.Put(prefix, namespace)
-
+            self.__namespace.delete(bound_prefix)
+        self.__prefix.put(namespace, prefix)
+        self.__namespace.put(prefix, namespace)
+    
     def namespace(self, prefix):
         prefix = prefix.encode("utf-8")
         ns = _get(self.__namespace, prefix)
@@ -362,8 +356,7 @@ class LevelDBStore(Store):
             s = _to_string(s)
             p = _to_string(p)
             o = _to_string(o)
-            contexts = self.__indices[0].Get(bb(
-                "%s^%s^%s^%s^" % ("", s, p, o)))
+            contexts = self.__indices[0].get(bb("%s^%s^%s^%s^" % ("", s, p, o)))
             if contexts:
                 for c in contexts.split(b("^")):
                     if c:
@@ -384,7 +377,6 @@ class LevelDBStore(Store):
         else:
             raise Exception("Key for %s is None" % str(i))
 
-    @lru_cache(5000)
     @lfu_cache(5000)
     def _to_string(self, term, txn=None):
         """index number (as a string) from rdflib term"""
@@ -392,11 +384,11 @@ class LevelDBStore(Store):
         i = _get(self.__k2i, k)
         if i is None:  # (from BdbApi)
             i = "%s" % self._terms
-            self.__k2i.Put(k, i)
-            self.__i2k.Put(i, k)
-            self._terms += 1
+            self.__k2i.put(k, i)
+            self.__i2k.put(i, k)
+            self._terms+=1
 
-            self.__k2i.Put("__terms__", str(self._terms))
+            self.__k2i.put("__terms__", str(self._terms))
 
         else:
             i = i.decode()

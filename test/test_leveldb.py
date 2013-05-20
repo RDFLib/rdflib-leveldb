@@ -1,5 +1,5 @@
 try:
-    import leveldb
+    import rdflib_leveldb.leveldb
 except ImportError:
     from nose import SkipTest
     raise SkipTest("LevelDB not installed")

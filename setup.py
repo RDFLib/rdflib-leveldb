@@ -15,13 +15,7 @@ else:
         from distutils.core import setup
         from distutils.extension import Extension        
 
-try: 
-    from Cython.Distutils import build_ext
-except:  
-    try: 
-        from Pyrex.Distutils import build_ext
-    except: 
-        raise "No Cython or Pyrex found!"
+
 
 def setup_python3():
     # Taken from "distribute" setup.py
@@ -100,10 +94,6 @@ config = dict(
             'LevelDB = rdflib_leveldb.leveldbstore:LevelDBStore',
         ],
     },
-    ext_modules=[ 
-        Extension("rdflib_leveldb.picklr", ["rdflib_leveldb/picklr.pyx"])
-    ],
-  cmdclass = {'build_ext': build_ext}
 )
 
 if sys.version_info[0] >= 3:
