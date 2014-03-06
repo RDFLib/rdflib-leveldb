@@ -21,7 +21,7 @@ except:
     try: 
         from Pyrex.Distutils import build_ext
     except: 
-        raise "No Cython or Pyrex found!"
+        raise Exception("No Cython or Pyrex found!")
 
 def setup_python3():
     # Taken from "distribute" setup.py
