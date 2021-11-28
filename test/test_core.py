@@ -30,7 +30,7 @@ class TestLevelDBGraphCore(unittest.TestCase):
 
     def tearDown(self):
         self.graph.close()
-        self.graph.destroy(self.path)
+        self.graph.destroy(configuration=self.path)
 
     def test_escape_quoting(self):
         test_string = "This's a Literal!!"
