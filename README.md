@@ -13,7 +13,7 @@ Example usage:
 ```python
 from rdflib import plugin, Graph, URIRef
 from rdflib.store import Store
-imort tempfile
+import tempfile
 import os
 
 
@@ -43,7 +43,8 @@ def example():
 ### Linux
 
 The implementation of the rdflib-leveldb “LevelDB” Store depends on:
-i) The C++ [leveldb library](https://github.com/google/leveldb/)
+
+1. The C++ [leveldb library](https://github.com/google/leveldb/)
 2. The [Plyvel](https://pypi.org/project/plyvel/) Python-to-leveldb interface.
 
 The leveldb library is installed using the appropriate package manager.
