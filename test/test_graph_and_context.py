@@ -1,27 +1,32 @@
 try:
-    import leveldb
+    import plyvel
+
+    assert plyvel
 except ImportError:
     from nose import SkipTest
+
     raise SkipTest("LevelDB not installed")
 
-import context_case
-import graph_case
+# import unittest
+from . import context_case
+from . import graph_case
 import tempfile
-from n3_2_case import testN3Store
+import os
 
 storename = "LevelDB"
 storetest = True
-configString = tempfile.mktemp(prefix='test',dir='/tmp')
+configString = os.path.join(tempfile.gettempdir(), "test_leveldb")
 
+
+# @unittest.skip("WIP")
 class LevelDBGraphTestCase(graph_case.GraphTestCase):
     store_name = storename
     path = configString
     storetest = True
 
+
+# @unittest.skip("WIP")
 class LevelDBContextTestCase(context_case.ContextTestCase):
     store_name = storename
     path = configString
     storetest = True
-
-testN3Store(storename, configString)
-

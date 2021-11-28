@@ -1,0 +1,3 @@
+git+https://github.com/RDFLib/rdflib#egg=rdflib
+plyvel-wheels; platform_system != "linux"
+plyvel; sys_platform == "linux"

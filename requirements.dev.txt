@@ -1,0 +1,14 @@
+berkeleydb; sys_platform == "linux" or sys_platform == "darwin"
+black==21.11b1
+coverage
+doctest-ignore-unicode==0.1.2
+flake8
+flake8-black
+html5lib
+mypy
+pytest
+pytest-cov
+pytest-subtests
+sphinx
+sphinxcontrib-apidoc
+types-setuptools

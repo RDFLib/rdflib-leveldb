@@ -1,0 +1,31 @@
+[tool.black]
+required-version = "21.11b1"
+line-length = "88"
+skip-string-normalization = true
+target-version = ['py38']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.pytest_cache
+    | \.tox
+    | \.venv
+    | \.github
+    | _build
+    | htmlcov
+    | benchmarks
+    | examples       # No need to Black examples
+    | test           # Tests are a mess, don't black them
+    | test_reports
+    | rdflib_leveldb.egg-info
+    | buck-out
+    | build
+    | dist
+    | venv
+  )/
+)
+'''
