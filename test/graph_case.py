@@ -3,13 +3,13 @@ from rdflib import Graph
 from rdflib import RDF
 from rdflib import URIRef
 
-michel = URIRef("michel")
-tarek = URIRef("tarek")
-bob = URIRef("bob")
-likes = URIRef("likes")
-hates = URIRef("hates")
-pizza = URIRef("pizza")
-cheese = URIRef("cheese")
+michel = URIRef("urn:michel")
+tarek = URIRef("urn:tarek")
+bob = URIRef("urn:bob")
+likes = URIRef("urn:likes")
+hates = URIRef("urn:hates")
+pizza = URIRef("urn:pizza")
+cheese = URIRef("urn:cheese")
 
 
 class GraphTestCase(unittest.TestCase):
