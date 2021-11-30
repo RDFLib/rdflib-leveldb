@@ -65,11 +65,10 @@ whereas Plyvel offers an interator:
 """
 import os
 import logging
+from functools import lru_cache
 from rdflib.store import Store, VALID_STORE, NO_STORE
 from rdflib.term import URIRef
 from urllib.request import pathname2url
-
-from . import lru_cache, lfu_cache
 
 try:
     from plyvel import DB as LevelDB
@@ -493,8 +492,7 @@ class LevelDBStore(Store):
         ]:
             yield prefix, URIRef(namespace)
 
-    @lru_cache(5000)
-    @lfu_cache(5000)
+    @lru_cache(maxsize=5000)
     def __get_context(self, ident):
         logger.debug(f"get context {ident}")
         return self.__contexts.get(ident, {})
@@ -525,15 +523,14 @@ class LevelDBStore(Store):
             for k in self.__contexts.iterator(include_value=False):
                 yield _from_string(k)
 
-    # LevelDB has a lru cache, perhaps use that.
-    @lru_cache(5000)
-    @lfu_cache(5000)
+    @lru_cache(maxsize=5000)
     def add_graph(self, graph):
         self.__contexts.put(self._to_string(graph).encode(), b"")
 
     def remove_graph(self, graph):
         self.remove((None, None, None), graph)
 
+    @lru_cache(maxsize=5000)
     def _from_string(self, i):
         """
         rdflib term from index number (as a string)
@@ -545,9 +542,7 @@ class LevelDBStore(Store):
         else:
             raise Exception(f"Key for {i} is None")
 
-    # LevelDB has a lru cache, perhaps use that.
-    @lru_cache(5000)
-    @lfu_cache(5000)
+    @lru_cache(maxsize=5000)
     def _to_string(self, term):
         """
         index number (as a string) from rdflib term
