@@ -6,8 +6,14 @@ import rdflib
 from rdflib_leveldb.leveldbstore import readable_index, NoopMethods
 from rdflib.graph import Graph, ConjunctiveGraph, Literal, URIRef
 from rdflib.namespace import XSD, RDFS
+from rdflib.store import VALID_STORE, NO_STORE
+import logging
 
-storename = "LevelDB"
+logging.basicConfig(level=logging.ERROR, format="%(message)s")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+storename = "SQLiteLSM"
 storetest = True
 
 michel = URIRef("urn:michel")
@@ -20,20 +26,51 @@ uri2 = URIRef("urn:graph2")
 
 
 class TestLevelDBGraphCore(unittest.TestCase):
+    rt = None
     def setUp(self):
         store = "LevelDB"
         self.graph = Graph(store=store)
         self.path = os.path.join(
             tempfile.gettempdir(), f"test_{store.lower()}"
         )
-        self.graph.open(self.path, create=True)
+        self.rt = self.graph.open(self.path, create=True)
+        assert self.rt == VALID_STORE, "The underlying store is corrupt"
+        assert (
+            len(self.graph) == 0
+        ), "There must be zero triples in the graph just after store (file) creation"
+        data = """
+                PREFIX : <https://example.org/>
+
+                :a :b :c .
+                :d :e :f .
+                :d :g :h .
+                """
+        self.graph.parse(data=data, format="ttl")
+        assert (
+            len(self.graph) == 3
+        ), "There must be three triples in the graph after the first data chunk parse"
 
     def tearDown(self):
         self.graph.close()
         self.graph.destroy(configuration=self.path)
 
+    def test_create_db(self):
+        self.graph.add((michel, likes, pizza))
+        self.graph.add((michel, likes, cheese))
+        self.graph.commit()
+        assert (
+            len(self.graph) == 5
+        ), f"There must be three triples in the graph after the first data chunk parse, not {len(self.graph)}"
+
+    # @unittest.skip("WIP")
+    # def test_dumpdb(self):
+    #     logger.debug(self.graph.store.dumpdb())
+
     def test_escape_quoting(self):
-        test_string = "This's a Literal!!"
+        assert (
+            len(self.graph) == 3
+        ), "There must be three triples in the graph after the first data chunk parse"
+        test_string = "That’s a Literal!!"
         self.graph.add(
             (
                 URIRef("http://example.org/foo"),
@@ -42,12 +79,16 @@ class TestLevelDBGraphCore(unittest.TestCase):
             )
         )
         self.graph.commit()
-        assert ("This's a Literal!!") in self.graph.serialize(format="xml")
+        assert ("That’s a Literal!!") in self.graph.serialize(format="xml")
 
     def test_namespaces(self):
         self.graph.bind("dc", "http://http://purl.org/dc/elements/1.1/")
         self.graph.bind("foaf", "http://xmlns.com/foaf/0.1/")
-        self.assertTrue(len(list(self.graph.namespaces())) == 6)
+        self.assertEqual(
+            len(list(self.graph.namespaces())),
+            7,
+            f"expected 6, got {len(list(self.graph.namespaces()))}",
+        )
         self.assertIn(
             ("foaf", URIRef("http://xmlns.com/foaf/0.1/")),
             list(self.graph.namespaces()),
@@ -55,12 +96,6 @@ class TestLevelDBGraphCore(unittest.TestCase):
 
     def test_readable_index(self):
         assert readable_index(111) == "s,p,o"
-
-    def test_create_db(self):
-        self.graph.add((michel, likes, pizza))
-        self.graph.add((michel, likes, cheese))
-        self.graph.commit()
-        self.graph.store.close()
 
     def test_missing_db_exception(self):
         self.graph.store.close()
@@ -83,12 +118,15 @@ class TestLevelDBGraphCore(unittest.TestCase):
         self.graph.store.close()
         self.graph.store.open(self.path, create=False)
         ntriples = self.graph.triples((None, None, None))
-        self.assertTrue(len(list(ntriples)) == 2)
+        listntriples = list(ntriples)
+        self.assertEqual(
+            len(listntriples), 5, f"Expected 2 not {len(listntriples)}"
+        )
 
     def test_reopening_missing_db(self):
         self.graph.store.close()
-        with self.assertRaises(Exception):
-            self.graph.store.open("NotAnExistingDB", create=False)
+        self.graph.store.destroy()
+        self.assertEqual(self.graph.open(self.path, create=False), NO_STORE)
 
     def test_isopen_db(self):
         self.assertTrue(self.graph.store.is_open() is True)
@@ -141,7 +179,6 @@ class TestLevelDBConjunctiveGraphCore(unittest.TestCase):
         self.assertTrue(len(ntriples) == 1, len(ntriples))
 
     def test_remove_db_exception(self):
-        # self.graph.store.dumpdb()
         self.graph.add((michel, likes, pizza))
         self.graph.add((michel, likes, cheese))
         self.graph.commit()

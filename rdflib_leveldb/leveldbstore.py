@@ -159,7 +159,7 @@ class LevelDBStore(Store):
                 )
         else:
             if not os.path.exists(dbpathname):
-                raise Exception(f"Database file not found {dbpathname}.")
+                return NO_STORE
             else:
                 self.db = LevelDB(
                     dbpathname, create_if_missing=False, error_if_exists=False
