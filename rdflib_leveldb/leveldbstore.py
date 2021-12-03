@@ -359,6 +359,7 @@ class LevelDBStore(Store):
     def remove(self, spo, context):
         subject, predicate, object = spo
         assert self.__open, "The Store must be open."
+        # Add the triple to the Store, triggering TripleRemoved events
         Store.remove(self, (subject, predicate, object), context)
         _to_string = self._to_string
 
