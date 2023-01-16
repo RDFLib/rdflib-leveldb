@@ -25,7 +25,7 @@ kwargs["tests_require"] = [
 
 kwargs["extras_require"] = {
     "tests": kwargs["tests_require"],
-    "docs": ["sphinx < 5", "sphinxcontrib-apidoc"],
+    "docs": ["sphinx < 7", "sphinxcontrib-apidoc"],
 }
 
 
