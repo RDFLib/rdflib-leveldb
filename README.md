@@ -14,7 +14,7 @@ Migrated to Python 3 / RDFLib=>6 and adjusted to use the [plyvel](https://pypi.o
 ### Install with pip from github repos
 
 ```bash
-pip install git+https://github.com/RDFLib/rdflib-leveldb#egg=rdflib_leveldb`
+pip install git+https://github.com/RDFLib/rdflib-leveldb#egg=rdflib_leveldb
 ```
 
 ### Install by cloning github repos, then pip install
